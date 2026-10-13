@@ -9,7 +9,7 @@ export default function AccordionDemo() {
   return (
     <Accordion
       className="w-full"
-      defaultValue="item-1"
+      defaultValue={["item-1"]}
     >
       <AccordionItem value="item-1">
         <AccordionTrigger>Product Information</AccordionTrigger>
