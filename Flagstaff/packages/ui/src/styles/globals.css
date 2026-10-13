@@ -1,0 +1,141 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+@source "../../../apps/**/*.{ts,tsx}";
+@source "../../../components/**/*.{ts,tsx}";
+@source "../**/*.{ts,tsx}";
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+    --font-sans: var(--font-sans);
+}
+
+/* Flagstaff tokens
+   Primary indigo lives on CTAs, focus rings, checked states, agent chat bubble,
+   chart series 1, sidebar brand slot, and links. Every other surface stays
+   neutral grey so primary has room to pop.
+
+   Brand indigo:   #545BD1  (dark: #878CE8)
+   Destructive:    #F26B6B  (per flagstaff-mascot-moods.md)
+   Chart hues:     indigo · teal · amber · coral · violet
+*/
+:root {
+    --background: #FBFBFC;
+    --foreground: #0E1030;
+    --card: #FFFFFF;
+    --card-foreground: #0E1030;
+    --popover: #FFFFFF;
+    --popover-foreground: #0E1030;
+    --primary: #545BD1;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F2F2F5;
+    --secondary-foreground: #1F2237;
+    --muted: #F2F2F5;
+    --muted-foreground: #6B6E80;
+    --accent: #F2F2F5;
+    --accent-foreground: #1F2237;
+    --destructive: #F26B6B;
+    --success: #2EB884;
+    --border: #E6E7EC;
+    --input: #E6E7EC;
+    --ring: #545BD1;
+    --chart-1: #545BD1;
+    --chart-2: #2EB8A1;
+    --chart-3: #E8A646;
+    --chart-4: #F26B6B;
+    --chart-5: #8E5BD9;
+    --radius: 0.625rem;
+    --sidebar: #FBFBFC;
+    --sidebar-foreground: #0E1030;
+    --sidebar-primary: #545BD1;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #F2F2F5;
+    --sidebar-accent-foreground: #1F2237;
+    --sidebar-border: #E6E7EC;
+    --sidebar-ring: #545BD1;
+}
+
+.dark {
+    --background: #0C0D14;
+    --foreground: #E6E7FA;
+    --card: #15161F;
+    --card-foreground: #E6E7FA;
+    --popover: #15161F;
+    --popover-foreground: #E6E7FA;
+    --primary: #878CE8;
+    --primary-foreground: #0E1030;
+    --secondary: #1E2030;
+    --secondary-foreground: #C9CBDA;
+    --muted: #1E2030;
+    --muted-foreground: #8A8C9F;
+    --accent: #1E2030;
+    --accent-foreground: #C9CBDA;
+    --destructive: #F26B6B;
+    --success: #3FD4A0;
+    --border: #262838;
+    --input: #262838;
+    --ring: #878CE8;
+    --chart-1: #878CE8;
+    --chart-2: #3FD3BA;
+    --chart-3: #F5B964;
+    --chart-4: #F58585;
+    --chart-5: #A784EC;
+    --sidebar: #15161F;
+    --sidebar-foreground: #E6E7FA;
+    --sidebar-primary: #878CE8;
+    --sidebar-primary-foreground: #0E1030;
+    --sidebar-accent: #1E2030;
+    --sidebar-accent-foreground: #C9CBDA;
+    --sidebar-border: #262838;
+    --sidebar-ring: #878CE8;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+}

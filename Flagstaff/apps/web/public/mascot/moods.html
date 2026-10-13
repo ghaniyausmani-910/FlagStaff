@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flagstaff Mascot Moods</title>
+<style>
+  :root { --bg:transparent; --panel:#FFFFFF; --ink:#1C1E4A; --muted:#6B6E94; --line:rgba(90,93,217,.18); --chip:#FFFFFF; }
+  * { box-sizing:border-box; }
+  html, body { background:transparent; }
+  body { margin:0; color:var(--ink); font-family:Inter, system-ui, -apple-system, sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 0 32px; }
+  h1 { font-size:26px; margin:0 0 6px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 24px; font-size:14px; line-height:1.5; max-width:720px; }
+  .play { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; background:var(--panel);
+          border:1px solid var(--line); border-radius:20px; padding:24px; margin-bottom:28px; align-items:center; }
+  .play .stage { aspect-ratio:1; max-width:380px; width:100%; margin:0 auto; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px; }
+  .chip { font:inherit; font-size:13px; padding:8px 14px; border-radius:999px; border:1px solid var(--line);
+          background:var(--chip); color:var(--ink); cursor:pointer; text-transform:capitalize; }
+  .chip.on { background:#5A5DD9; border-color:#5A5DD9; color:#fff; }
+  .kit { font-size:13px; color:var(--muted); line-height:1.6; }
+  .kit b { color:var(--ink); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px 16px 18px; cursor:pointer; }
+  .card .stage { aspect-ratio:1; }
+  .card h3 { margin:4px 0 6px; font-size:15px; text-transform:capitalize; }
+  .card p { margin:0 0 6px; font-size:12.5px; line-height:1.5; color:var(--muted); }
+  .card p b { color:var(--ink); font-weight:600; }
+  svg { width:100%; height:100%; display:block; overflow:visible; }
+  @media (max-width:720px) { .play { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Agent mascot: mood states</h1>
+  <p class="sub">Every mood uses the same four parts: the <b>four lobes</b> (from the logo), the <b>eyes</b>, the <b>base line</b> and <b>color</b>. Pick a mood in the playground to see how one state changes into another. All moods are built from the same shape, so the mascot can move between any two of them smoothly.</p>
+
+  <section class="play">
+    <div class="stage" id="hero"></div>
+    <div>
+      <div class="kit">
+        <b>Lobes</b>: breathe, ripple, pump, sag, tense, or split back into the four logo dots.<br>
+        <b>Eyes</b>: the main emotion carrier. They can be pills, arcs, slants, closed curves, or one shared visor.<br>
+        <b>Base line</b>: a shadow, a smile or frown, or a progress bar.<br>
+        <b>Color</b>: brand purple by default; pastel for sad, navy for mad, grey for sleep.<br>
+        <b>Extras</b>: small effects only where they add meaning (thought dots, pings, sparkles, z's).
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </section>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const clamp=v=>Math.max(0,Math.min(1,v)), lerp=(a,b,t)=>a+(b-a)*t;
+const io=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const toHex=a=>'#'+a.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+function lerpP(a,b,p){const o={};for(const k in a){const x=a[k],y=b[k];
+  o[k]=typeof x==='number'?lerp(x,y,p):Array.isArray(x)?x.map((v,i)=>lerp(v,y[i],p)):
+       (typeof x==='string'&&x[0]==='#')?toHex(hex(x).map((v,i)=>lerp(v,hex(y)[i],p))):y;}return o;}
+
+// Eye = quadratic stroke [ax,ay, cx,cy, bx,by]
+const pill=(x,y,h,tilt=0)=>{const r=tilt*Math.PI/180,sx=Math.sin(r)*h,cy=Math.cos(r)*h;return[x+sx,y-cy,x,y,x-sx,y+cy];};
+const arcUp=(x,y,w=13,h=8)=>[x-w,y+h,x,y-h*1.7,x+w,y+h];      // ^  happy
+const arcDown=(x,y,w=11,h=4)=>[x-w,y-h,x,y+h*2,x+w,y-h];      // ‿  asleep
+const closeEye=(e,k)=>{const x=(e[0]+e[4])/2,y=(e[1]+e[5])/2;return e.map((v,i)=>lerp(v,i%2?y:[x-9,x,x+9][i/2],k));};
+const blinkK=(t,per,off=0)=>{const p=(t+off)%per;return p<.22?Math.sin(Math.PI*p/.22):0;};
+const eyes=(L,R,k=0,ew=18)=>({eyeL:closeEye(L,k),eyeR:closeEye(R,k),ew:ew*(1-.4*k)});
+
+const BRAND='#5A5DD9', NAVY='#3D40A8', PASTEL='#7277C4', SLEEP='#8E91B8';
+const B={dx:0,dy:0,rot:0,sx:1,sy:1,spin:0,d:52,r:[60,60,60,60],blur:9,color:BRAND,
+  eyeL:pill(-25,-10,17),eyeR:pill(25,-10,17),ew:18,eyeColor:'#FFFFFF',eyeO:1,
+  lw:92,bend:0,cx:0,ly:140,lo:1,lineColor:BRAND,prog:0,progO:0,
+  aThink:0,aRing:0,aSpark:0,aGlint:0,aZ:0,aVein:0,veinS:1,aBlush:0,aSiren:0,
+  ld:[0,0,0,0],la:[0,0,0,0],eyeM:[0,-6,0,-6,0,-6],eyeMO:0};
+
+/* ---------- mood definitions ---------- */
+const S={
+  idle:t=>{const f=Math.sin(t*1.6);return{...B,dy:f*4-2,sy:1+f*.012,sx:1-f*.008,lw:92-f*8,
+    ...eyes(pill(-25,-10,17),pill(25,-10,17),blinkK(t,4))};},
+
+  processing:t=>{const st=.55,n=Math.floor(t/st),fr=(t%st)/st;
+    return{...B,spin:45+90*(n+io(fr)),d:42,r:[0,1,2,3].map(i=>25+3*Math.sin(t*6-i*Math.PI/2)),blur:3,
+      eyeO:0,lw:62+26*Math.sin(t*5),lo:.6};},
+
+  // Thinking A — "Idea orbit": the top lobe pinches off, swings over the head like a pendulum, eyes follow it, then it merges back
+  'thinking: orbit':t=>{const P=3.6,ph=(t%P)/P,OUT=95;let ld=0,r0=60,la=0;
+    if(ph<.15){const k=io(ph/.15);ld=OUT*k;r0=lerp(60,20,k);}
+    else if(ph<.85){ld=OUT;r0=20;la=110*Math.sin(2*Math.PI*(ph-.15)/.7);}
+    else{const k=io((ph-.85)/.15);ld=OUT*(1-k);r0=lerp(20,60,k);}
+    const th=(-90+la)*Math.PI/180,o=ld/OUT,lx=Math.cos(th)*7*o,ly=Math.sin(th)*7*o;
+    // side lobes drift up and swell while the top lobe is away, so the head stays round
+    return{...B,ld:[ld,-8*o,0,-8*o],la:[la,-30*o,0,30*o],r:[r0,60+6*o,60,60+6*o],rot:-la*.03,lw:88,
+      ...eyes(pill(-25+lx,-10+ly,15),pill(25+lx,-10+ly,15),0)};},
+
+  // Thinking B — "Typing dots": eyes shrink to dots, a third dot joins, and they bounce like a chat typing indicator
+  'thinking: dots':t=>{const b=i=>-9*Math.max(0,Math.sin(t*6-i*1.1));
+    const dot=(x,y)=>[x,y,x,y,x,y];
+    return{...B,rot:Math.sin(t*1.3)*3,dy:Math.sin(t*1.3)*2,lw:86,ew:17,
+      eyeL:dot(-28,-6+b(0)),eyeM:dot(0,-6+b(1)),eyeR:dot(28,-6+b(2)),eyeMO:1};},
+
+  'thinking: v1':t=>{const g=Math.sin(t*.8)*3;return{...B,rot:-5+Math.sin(t*1.2)*2,
+    r:[0,1,2,3].map(i=>60+5*Math.max(0,Math.sin(t*3.5-i*Math.PI/2))),aThink:1,lw:84,
+    ...eyes(pill(-17+g,-20,15),pill(33+g,-20,11),blinkK(t,5,2))};},
+
+  working:t=>{const p=(t%2.4)/2.4;return{...B,dy:-Math.abs(Math.sin(t*7))*3,
+    r:[0,1,2,3].map(i=>60+4*Math.sin(t*7+i*Math.PI)),lw:110,prog:p,progO:1,
+    ...eyes(pill(-25,-2,8),pill(25,-2,8),0)};},
+
+  happy:t=>{const ph=(t*1.3)%1,air=Math.sin(Math.PI*ph),g=Math.pow(1-air,6);
+    return{...B,dy:-air*20,sy:1-.08*g,sx:1+.07*g,lw:86-air*20,bend:12,aSpark:1,
+      ...eyes(arcUp(-25,-10),arcUp(25,-10),0)};},
+
+  cool:t=>({...B,rot:7+Math.sin(t*2.2)*1.5,dy:Math.sin(t*2.2)*2,aGlint:1,lw:78,bend:7,cx:28,
+    eyeL:[-42,-12,-21,-12,-2,-12],eyeR:[2,-12,21,-12,42,-12],ew:26,eyeColor:'#14163F'}),
+
+  'alert: rings':t=>{const ph=(t%1.6)/1.6,hop=ph<.3?Math.sin(Math.PI*ph/.3):0;
+    return{...B,dy:-hop*16,r:[60+6*hop,60,60,60],aRing:1,lw:92-hop*25,
+      ...eyes(pill(-25,-14,22),pill(25,-14,22),0,20)};},
+
+  // Alert B — "Siren": red rays (like a beacon light) fan around the top of the head, flashing and shooting out on each hop
+  'alert: siren':t=>{const ph=(t%1.6)/1.6,hop=ph<.3?Math.sin(Math.PI*ph/.3):0;
+    return{...B,dy:-hop*16,r:[60+6*hop,60,60,60],aSiren:1,lw:92-hop*25,
+      ...eyes(pill(-25,-14,22),pill(25,-14,22),0,20)};},
+
+  sad:t=>{const b=Math.sin(t*.9);return{...B,dy:8+b*1.5,sy:.93+b*.01,sx:1.05,d:50,r:[52,60,62,60],
+    color:PASTEL,lineColor:PASTEL,lw:62,bend:-9,
+    ...eyes(pill(-24,2,11,14),pill(24,2,11,-14),blinkK(t,4.5,1)*.9)};},
+
+  mad:t=>{const burst=(t%1.8)<.6;return{...B,dx:burst?Math.sin(t*55)*2.5:0,sy:.97,sx:1.03,d:55,r:[57,57,57,57],
+    color:NAVY,lineColor:NAVY,lw:56,bend:-3,aVein:1,
+    // anger mark throbs: sharp pop at the start of each shake burst, then a slow pulse
+    veinS:burst?1.15+.12*Math.sin(t*30):1+.06*Math.sin(t*6),
+    eyeL:[-40,-22,-26,-15,-12,-8],eyeR:[40,-22,26,-15,12,-8],ew:16};},
+
+  // Blushing — shy: eyes glance down and away, pink cheeks with blush strokes, small sway and tilt, little wavy smile
+  blushing:t=>{const sw=Math.sin(t*1.4),peek=Math.max(0,Math.sin(t*.9-1))>.93?1:0,k=blinkK(t,3.4,1.2);
+    const lx=lerp(-9,0,peek),ly=lerp(5,-2,peek);
+    return{...B,rot:-6+sw*2.5,dy:3+sw*1.5,sx:1.02,sy:.97,aBlush:.85+.15*Math.sin(t*2.2),
+      lw:46,bend:5,cx:-8,
+      ...eyes(pill(-25+lx,-8+ly,12),pill(25+lx,-8+ly,12),k)};},
+
+  sleep:t=>{const b=Math.sin(t*1.1);return{...B,dy:4+b*2,sy:1+b*.02,color:SLEEP,lineColor:SLEEP,lw:92+b*4,aZ:1,
+    eyeL:arcDown(-25,-4),eyeR:arcDown(25,-4),ew:11};},
+};
+
+const INFO={
+  idle:['Calm float and slow breathing, with a blink every few seconds. The line works like a shadow and shrinks as the mascot rises.','Dashboard at rest, waiting for the user.'],
+  processing:['The body splits back into the <b>four logo dots</b>, which turn a quarter at a time like a loader. The eyes are hidden.','Syncing accounts, fetching analytics, loading.'],
+  'thinking: orbit':['The top lobe <b>pinches off as a small logo dot</b> and swings over the head like a pendulum while the eyes follow it, then it drops back and merges in. It reads as "turning an idea over."','Coming up with post ideas or finding the best time to post.'],
+  'thinking: dots':['The eyes shrink into dots, a third dot joins between them, and they bounce in sequence like a <b>chat typing indicator</b> while the body sways.','Writing a caption or reply, anything shown in a chat.'],
+  'thinking: v1':['(The first version, kept to compare.) The eyes look up and to the side, with one narrowed. The lobes ripple one after another and thought dots rise.','Coming up with post ideas or finding the best time to post.'],
+  working:['The eyes narrow and look down in focus, and the lobes pump. The base line <b>turns into a progress bar</b>.','Scheduling posts, running a campaign, bulk actions.'],
+  happy:['The eyes curve into ^ ^. It bounces with a squash on landing, the line curves into a smile, and sparkles appear.','A post went live, engagement went up, or a goal was hit.'],
+  cool:['The eyes merge into one dark visor like sunglasses, with a head tilt and a sideways smirk.','A post going viral, a winning streak, a top week.'],
+  'alert: rings':['The eyes go tall and wide, it hops quickly, and signal rings pulse out from the head.','A trending topic was detected; a post idea is time-sensitive.'],
+  'alert: siren':['The same wide eyes and hop, with <b>red beacon rays</b> fanned around the top of the head, like the lines on an alarm light. The rays flash in alternating sets and shoot outward on each hop.','Urgent alerts: a trend is peaking right now, or a campaign needs attention.'],
+  sad:['The eyes shrink and droop, the body sags, the top lobe deflates, the color fades to pastel and the line frowns.','Engagement dropped or a post is underperforming.'],
+  blushing:['The eyes glance down and away, with an occasional quick peek back. <b>Pink cheeks with little blush strokes</b> pulse softly, the body tilts and sways shyly, and the smile line stays small.','The user says thanks, praises a suggestion, or rates the agent well.'],
+  mad:['The eyes slant into a scowl, the color deepens to navy, and the body tenses and shakes in short bursts. A red <b>anger mark</b> 💢 throbs on the forehead.','Errors: a post failed, an account disconnected, a rate limit was hit. It should read as annoyed at the problem, never at the user.'],
+  sleep:['The eyes close into soft curves, breathing slows, z\'s float up and the color turns grey.','Offline, account paused, quiet hours.'],
+};
+
+/* ---------- renderer ---------- */
+let uid=0;
+const star=(x,y,s)=>`M${x} ${y-s}Q${x} ${y} ${x+s} ${y}Q${x} ${y} ${x} ${y+s}Q${x} ${y} ${x-s} ${y}Q${x} ${y} ${x} ${y-s}Z`;
+function make(el){
+  const id='g'+(uid++);
+  el.innerHTML=`<svg viewBox="-170 -180 340 350" aria-hidden="true">
+   <defs><filter id="${id}" x="-50%" y="-50%" width="200%" height="200%">
+     <feGaussianBlur class="blur" in="SourceGraphic" stdDeviation="9" result="b"/>
+     <feColorMatrix in="b" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 22 -10"/></filter></defs>
+   <circle class="ring" fill="none" stroke="${BRAND}" stroke-width="4"/>
+   <path class="track" fill="none" stroke-linecap="round" stroke-width="16"/>
+   <path class="fillp" fill="none" stroke-linecap="round" stroke-width="16"/>
+   <g class="rig"><g class="body" filter="url(#${id})">${'<circle/>'.repeat(4)}</g>
+     <path class="eL" fill="none" stroke-linecap="round"/><path class="eR" fill="none" stroke-linecap="round"/><path class="eM" fill="none" stroke-linecap="round"/>
+     <path class="glint" d="M-31 -21L-25 -7M13 -21L19 -7" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+     <g class="blush"><g fill="#FF9EC4"><ellipse cx="-50" cy="18" rx="17" ry="9"/><ellipse cx="50" cy="18" rx="17" ry="9"/></g>
+       <path d="M-60 23L-55 13M-51 23L-46 13M-42 23L-37 13M40 23L45 13M49 23L54 13M58 23L63 13" stroke="#E9659B" stroke-width="2.6" stroke-linecap="round"/></g>
+     <g class="siren" stroke="#F26B6B" stroke-width="11" stroke-linecap="round">${'<line/>'.repeat(7)}</g>
+     <g class="vein" fill="none" stroke="#F26B6B" stroke-width="6.5" stroke-linecap="round">
+       <path d="M-5 -19Q-5 -5 -19 -5M5 -19Q5 -5 19 -5M-5 19Q-5 5 -19 5M5 19Q5 5 19 5"/></g></g>
+   <g class="think" fill="#A9ABEF"><circle cx="84" cy="-116" r="6"/><circle cx="104" cy="-138" r="9"/><circle cx="130" cy="-160" r="12"/></g>
+   <g class="spark" fill="#A9ABEF"><path/><path/><path/></g>
+   <g class="zz" fill="${SLEEP}" font-weight="700" font-family="Inter,system-ui,sans-serif">
+     <text x="70" y="-108" font-size="18">z</text><text x="92" y="-132" font-size="24">z</text><text x="118" y="-156" font-size="30">z</text></g>
+  </svg>`;
+  const q=s=>el.querySelector(s);
+  return{blur:q('.blur'),ring:q('.ring'),track:q('.track'),fillp:q('.fillp'),rig:q('.rig'),body:q('.body'),
+    dots:[...el.querySelectorAll('.body circle')],eL:q('.eL'),eR:q('.eR'),eM:q('.eM'),glint:q('.glint'),blush:q('.blush'),vein:q('.vein'),rays:[...el.querySelectorAll('.siren line')],
+    think:[...el.querySelectorAll('.think circle')],spark:[...el.querySelectorAll('.spark path')],zz:[...el.querySelectorAll('.zz text')]};
+}
+function draw(m,p,t){
+  m.blur.setAttribute('stdDeviation',Math.max(.01,p.blur));
+  m.body.setAttribute('fill',p.color);
+  m.dots.forEach((c,i)=>{const a=(p.spin-90+i*90+p.la[i])*Math.PI/180,dd=p.d+p.ld[i];
+    c.setAttribute('cx',dd*Math.cos(a));c.setAttribute('cy',dd*Math.sin(a));c.setAttribute('r',Math.max(0,p.r[i]));});
+  m.rig.setAttribute('transform',`translate(${p.dx} ${p.dy}) translate(0 110) rotate(${p.rot}) scale(${p.sx} ${p.sy}) translate(0 -110)`);
+  [[m.eL,p.eyeL],[m.eR,p.eyeR]].forEach(([el,e])=>{el.setAttribute('d',`M${e[0]} ${e[1]}Q${e[2]} ${e[3]} ${e[4]} ${e[5]}`);
+    el.setAttribute('stroke',p.eyeColor);el.setAttribute('stroke-width',p.ew);el.setAttribute('opacity',p.eyeO);});
+  const em=p.eyeM;m.eM.setAttribute('d',`M${em[0]} ${em[1]}Q${em[2]} ${em[3]} ${em[4]} ${em[5]}`);
+  m.eM.setAttribute('stroke',p.eyeColor);m.eM.setAttribute('stroke-width',p.ew);m.eM.setAttribute('opacity',p.eyeMO*p.eyeO);
+  m.glint.setAttribute('opacity',p.aGlint*.9);
+  m.blush.setAttribute('opacity',p.aBlush);
+  m.vein.setAttribute('opacity',p.aVein);
+  { // siren rays: 7 rays fanned from 180° to 0° over the head; alternate sets flash; rays shoot out on each hop
+    const ph=(t%1.6)/1.6,hop=ph<.3?Math.sin(Math.PI*ph/.3):0,ext=hop*12,alt=Math.floor(t/.22)%2;
+    m.rays.forEach((ln,i)=>{const a=(-180+i*30)*Math.PI/180,r1=128+ext,r2=r1+24+ext*.6,cy=-8;
+      ln.setAttribute('x1',r1*Math.cos(a));ln.setAttribute('y1',cy+r1*Math.sin(a));
+      ln.setAttribute('x2',r2*Math.cos(a));ln.setAttribute('y2',cy+r2*Math.sin(a));
+      ln.setAttribute('opacity',p.aSiren*(i%2===alt?1:.45));});
+  }
+  m.vein.setAttribute('transform',`translate(36 -66) rotate(12) scale(${Math.max(.01,.9*p.veinS*p.aVein)})`);
+  const x0=p.dx-p.lw/2,x1=p.dx+p.lw/2;
+  m.track.setAttribute('d',`M${x0} ${p.ly}Q${p.dx+p.cx} ${p.ly+p.bend*2} ${x1} ${p.ly}`);
+  m.track.setAttribute('stroke',p.lineColor);m.track.setAttribute('opacity',p.lo*lerp(1,.25,p.progO));
+  m.fillp.setAttribute('d',`M${x0} ${p.ly}L${x0+p.lw*Math.max(p.prog,.001)} ${p.ly}`);
+  m.fillp.setAttribute('stroke',p.lineColor);m.fillp.setAttribute('opacity',p.progO);
+  const rp=(t%1.6)/1.6;m.ring.setAttribute('cx',p.dx);m.ring.setAttribute('cy',p.dy-10);
+  m.ring.setAttribute('r',80+rp*80);m.ring.setAttribute('opacity',p.aRing*(1-rp)*.8);
+  m.think.forEach((c,i)=>c.setAttribute('opacity',p.aThink*(.25+.75*Math.max(0,Math.sin(t*3-i*.9)))));
+  [[-120,-92,14],[124,-58,10],[104,-140,9]].forEach(([x,y,s],i)=>m.spark[i].setAttribute('d',star(x,y+p.dy*.4,s*p.aSpark*(.55+.45*Math.sin(t*5+i*2)))));
+  m.zz.forEach((z,i)=>{const c=((t*.6+i/3)%1);z.setAttribute('opacity',p.aZ*Math.sin(Math.PI*c));z.setAttribute('transform',`translate(0 ${-c*10})`);});
+}
+
+/* ---------- playground + gallery ---------- */
+const hero={m:make(document.getElementById('hero')),cur:'idle',prev:'idle',at:-9};
+const chips=document.getElementById('chips'), grid=document.getElementById('grid');
+function select(k){if(k===hero.cur)return;hero.prev=hero.cur;hero.cur=k;hero.at=performance.now()/1000;
+  [...chips.children].forEach(c=>c.classList.toggle('on',c.dataset.k===k));}
+const ORDER=['idle','processing','thinking: orbit','thinking: dots','thinking: v1','working','happy','cool','alert: rings','alert: siren','blushing','sad','mad','sleep'];
+const cards=ORDER.map((k,i)=>{
+  const b=document.createElement('button');b.className='chip'+(k==='idle'?' on':'');b.textContent=k;b.dataset.k=k;b.onclick=()=>select(k);chips.appendChild(b);
+  const c=document.createElement('div');c.className='card';
+  c.innerHTML=`<div class="stage"></div><h3>${k}</h3><p><b>Looks:</b> ${INFO[k][0]}</p><p><b>Used when:</b> ${INFO[k][1]}</p>`;
+  c.onclick=()=>{select(k);window.scrollTo({top:0,behavior:'smooth'});};
+  grid.appendChild(c);return{k,m:make(c.querySelector('.stage')),off:i*.7};
+});
+function loop(ms){const t=ms/1000;
+  const p=io(clamp((t-hero.at)/.5));
+  draw(hero.m,p>=1?S[hero.cur](t):lerpP(S[hero.prev](t),S[hero.cur](t),p),t);
+  cards.forEach(c=>draw(c.m,S[c.k](t+c.off),t+c.off));
+  requestAnimationFrame(loop);}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
