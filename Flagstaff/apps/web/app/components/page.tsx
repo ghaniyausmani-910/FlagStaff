@@ -3,6 +3,15 @@
 import * as React from "react"
 import * as LucideIcons from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@workspace/ui/components/pagination"
 import { cn } from "@workspace/ui/lib/utils"
 
 import AccordionDemo from "@/components/demos/accordion-demo"
@@ -693,8 +702,24 @@ const ICON_ENTRIES: [string, LucideIcon][] = Object.entries(LucideIcons)
   )
   .sort(([a], [b]) => a.localeCompare(b)) as [string, LucideIcon][]
 
+const ICONS_PER_PAGE = 98
+
+function buildPageList(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set<number>([1, total, current, current - 1, current + 1])
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b)
+  const out: (number | "ellipsis")[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    const p = sorted[i]!
+    if (i > 0 && p - sorted[i - 1]! > 1) out.push("ellipsis")
+    out.push(p)
+  }
+  return out
+}
+
 function IconsView() {
   const [query, setQuery] = React.useState("")
+  const [page, setPage] = React.useState(1)
   const [copied, setCopied] = React.useState<string | null>(null)
 
   const filtered = React.useMemo(() => {
@@ -702,6 +727,24 @@ function IconsView() {
     if (!q) return ICON_ENTRIES
     return ICON_ENTRIES.filter(([name]) => name.toLowerCase().includes(q))
   }, [query])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ICONS_PER_PAGE))
+  const currentPage = Math.min(page, totalPages)
+  const start = (currentPage - 1) * ICONS_PER_PAGE
+  const pageItems = filtered.slice(start, start + ICONS_PER_PAGE)
+  const pageList = buildPageList(currentPage, totalPages)
+
+  React.useEffect(() => {
+    setPage(1)
+  }, [query])
+
+  const goto = (p: number) => {
+    const next = Math.min(Math.max(1, p), totalPages)
+    setPage(next)
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }
 
   const handleCopy = (name: string) => {
     void navigator.clipboard?.writeText(name)
@@ -723,14 +766,16 @@ function IconsView() {
             className="border-border bg-background focus:border-primary/60 focus:ring-primary/20 w-full max-w-sm rounded-full border px-4 py-1.5 text-sm outline-none transition-colors focus:ring-2"
           />
           <span className="text-muted-foreground text-xs">
-            {filtered.length} of {ICON_ENTRIES.length}
+            {filtered.length === 0
+              ? "0 icons"
+              : `${start + 1}–${start + pageItems.length} of ${filtered.length}`}
           </span>
         </div>
       </div>
 
       <main className="mx-auto max-w-7xl px-8 py-8">
         <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-3">
-          {filtered.map(([name, Icon]) => (
+          {pageItems.map(([name, Icon]) => (
             <button
               key={name}
               type="button"
@@ -750,6 +795,55 @@ function IconsView() {
           <div className="text-muted-foreground py-16 text-center text-sm">
             No icons match “{query}”.
           </div>
+        )}
+
+        {totalPages > 1 && (
+          <Pagination className="mt-10">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  aria-disabled={currentPage === 1}
+                  className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage > 1) goto(currentPage - 1)
+                  }}
+                />
+              </PaginationItem>
+              {pageList.map((p, i) =>
+                p === "ellipsis" ? (
+                  <PaginationItem key={`e-${i}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      href="#"
+                      isActive={p === currentPage}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        goto(p)
+                      }}
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  aria-disabled={currentPage === totalPages}
+                  className={cn(currentPage === totalPages && "pointer-events-none opacity-50")}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage < totalPages) goto(currentPage + 1)
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         )}
       </main>
 
