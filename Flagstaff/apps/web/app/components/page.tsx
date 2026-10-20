@@ -702,7 +702,7 @@ const ICON_ENTRIES: [string, LucideIcon][] = Object.entries(LucideIcons)
   )
   .sort(([a], [b]) => a.localeCompare(b)) as [string, LucideIcon][]
 
-const ICONS_PER_PAGE = 98
+const ICONS_PER_PAGE = 100
 
 function buildPageList(current: number, total: number): (number | "ellipsis")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
