@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import * as LucideIcons from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 
 import AccordionDemo from "@/components/demos/accordion-demo"
@@ -134,7 +136,7 @@ const DEMOS: Demo[] = [
 ]
 
 const CATEGORIES = ["All", "Layout", "Overlay", "Form", "Action", "Feedback", "Data"] as const
-const VIEWS = ["Components", "Design tokens", "Mascot"] as const
+const VIEWS = ["Components", "Design tokens", "Mascot", "Icons"] as const
 
 export default function ComponentsPage() {
   const [view, setView] = React.useState<(typeof VIEWS)[number]>("Components")
@@ -185,6 +187,14 @@ export default function ComponentsPage() {
             <h1 className="text-4xl font-semibold tracking-tight">Mascot</h1>
             <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
               The Flagstaff agent mascot — formation, moods, and motion. This view is empty for now — we&apos;re still assembling it.
+            </p>
+          </>
+        )}
+        {view === "Icons" && (
+          <>
+            <h1 className="text-4xl font-semibold tracking-tight">Icons</h1>
+            <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
+              Every icon from <code className="font-mono text-xs">lucide-react</code>. Click one to copy its import name.
             </p>
           </>
         )}
@@ -244,6 +254,7 @@ export default function ComponentsPage() {
         </>
       )}
       {view === "Design tokens" && <TokensView />}
+      {view === "Icons" && <IconsView />}
       {view === "Mascot" && (
         <main className="mx-auto max-w-7xl space-y-10 px-8 py-10">
           <section>
@@ -661,6 +672,91 @@ function MotionTile({ label, className }: { label: string; className: string }) 
       />
       <code className="text-primary absolute inset-x-0 bottom-1.5 text-center font-mono text-[10px]">{label}</code>
     </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Icons view — every lucide-react icon
+// ────────────────────────────────────────────────────────────────────────
+
+const ICON_ENTRIES: [string, LucideIcon][] = Object.entries(LucideIcons)
+  .filter(
+    ([name, value]) =>
+      typeof value === "object" &&
+      value !== null &&
+      "$$typeof" in (value as object) &&
+      /^[A-Z]/.test(name) &&
+      !name.endsWith("Icon") &&
+      !name.startsWith("Lucide") &&
+      name !== "Icon" &&
+      name !== "createLucideIcon"
+  )
+  .sort(([a], [b]) => a.localeCompare(b)) as [string, LucideIcon][]
+
+function IconsView() {
+  const [query, setQuery] = React.useState("")
+  const [copied, setCopied] = React.useState<string | null>(null)
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return ICON_ENTRIES
+    return ICON_ENTRIES.filter(([name]) => name.toLowerCase().includes(q))
+  }, [query])
+
+  const handleCopy = (name: string) => {
+    void navigator.clipboard?.writeText(name)
+    setCopied(name)
+    window.setTimeout(() => {
+      setCopied((c) => (c === name ? null : c))
+    }, 1200)
+  }
+
+  return (
+    <>
+      <div className="bg-background sticky top-0 z-10 border-b">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-8 py-4">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search icons…"
+            className="border-border bg-background focus:border-primary/60 focus:ring-primary/20 w-full max-w-sm rounded-full border px-4 py-1.5 text-sm outline-none transition-colors focus:ring-2"
+          />
+          <span className="text-muted-foreground text-xs">
+            {filtered.length} of {ICON_ENTRIES.length}
+          </span>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl px-8 py-8">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-3">
+          {filtered.map(([name, Icon]) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => handleCopy(name)}
+              title={name}
+              className="group bg-card hover:border-primary/60 flex aspect-square flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border p-3 transition-colors"
+            >
+              <Icon className="text-foreground h-6 w-6" strokeWidth={1.75} />
+              <code className="text-muted-foreground group-hover:text-foreground w-full truncate text-center font-mono text-[10px] transition-colors">
+                {copied === name ? "Copied!" : name}
+              </code>
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="text-muted-foreground py-16 text-center text-sm">
+            No icons match “{query}”.
+          </div>
+        )}
+      </main>
+
+      <footer className="mx-auto max-w-7xl border-t px-8 py-10 text-xs text-muted-foreground">
+        Icons from <code className="font-mono">lucide-react</code>. Click any icon to copy its component name — then import it from <code className="font-mono">lucide-react</code>.
+      </footer>
+    </>
   )
 }
 
